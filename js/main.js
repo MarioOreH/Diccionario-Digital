@@ -38,40 +38,56 @@ const AUDIO_BASE = './assets/audios/';
  * @property {boolean} isMouth  - Si la parte pertenece al dibujo de la boca.
  */
 
-/** @type {PartData[]} */
-const PARTS_DATA = [
-  { id: 'ojos',     label: 'OJOS',     phrase: 'Estos son mis ojos. Con mis ojos puedo ver.',                   question: '¿Dónde están los ojos?',      answer: '¡Muy bien! Estos son los ojos.',       isMouth: false },
-  { id: 'nariz',    label: 'NARIZ',    phrase: 'Esta es mi nariz. Con mi nariz puedo oler.',                    question: '¿Dónde está la nariz?',       answer: '¡Muy bien! Esta es la nariz.',          isMouth: false },
-  { id: 'boca',     label: 'BOCA',     phrase: 'Esta es mi boca. Con mi boca puedo hablar y comer.',            question: '¿Dónde está la boca?',        answer: '¡Muy bien! Esta es la boca.',           isMouth: false },
-  { id: 'orejas',   label: 'OREJAS',   phrase: 'Estas son mis orejas. Con mis orejas puedo escuchar.',          question: '¿Dónde están las orejas?',    answer: '¡Muy bien! Estas son las orejas.',      isMouth: false },
-  { id: 'cejas',    label: 'CEJAS',    phrase: 'Estas son mis cejas. Mis cejas protegen mis ojos.',             question: '¿Dónde están las cejas?',     answer: '¡Muy bien! Estas son las cejas.',       isMouth: false },
-  { id: 'mejillas', label: 'MEJILLAS', phrase: 'Estas son mis mejillas.',                                       question: '¿Dónde están las mejillas?',  answer: '¡Muy bien! Estas son las mejillas.',    isMouth: false },
-  { id: 'frente',   label: 'FRENTE',   phrase: 'Esta es mi frente.',                                            question: '¿Dónde está la frente?',      answer: '¡Muy bien! Esta es la frente.',         isMouth: false },
-  { id: 'dientes',  label: 'DIENTES',  phrase: 'Estos son mis dientes. Con mis dientes puedo masticar.',        question: '¿Dónde están los dientes?',   answer: '¡Muy bien! Estos son los dientes.',     isMouth: true  },
-  { id: 'lengua',   label: 'LENGUA',   phrase: 'Esta es mi lengua. Con mi lengua puedo saborear.',              question: '¿Dónde está la lengua?',      answer: '¡Muy bien! Esta es la lengua.',         isMouth: true  },
+/**
+ * Todas las partes del rostro definidas (activas y futuras).
+ * Las partes con `active: true` se usan actualmente en la lección y el juego.
+ * Las partes con `active: false` están preparadas para ser incorporadas más adelante.
+ * @type {PartData[]}
+ */
+const ALL_PARTS_DATA = [
+  // ── Partes activas (con audio de versión completa) ──
+  { id: 'ojos',     label: 'OJOS',     phrase: 'Estos son mis ojos, con mis ojos puedo ver.',                   question: '¿Dónde están los ojos?',      answer: '¡Muy bien! Estos son los ojos.',       isMouth: false, active: true  },
+  { id: 'nariz',    label: 'NARIZ',    phrase: 'Esta es mi nariz, con mi nariz puedo oler.',                    question: '¿Dónde está la nariz?',       answer: '¡Muy bien! Esta es la nariz.',          isMouth: false, active: true  },
+  { id: 'boca',     label: 'BOCA',     phrase: 'Esta es mi boca, con mi boca puedo hablar y comer.',            question: '¿Dónde está la boca?',        answer: '¡Muy bien! Esta es la boca.',           isMouth: false, active: true  },
+  { id: 'orejas',   label: 'OREJAS',   phrase: 'Estas son mis orejas, con mis orejas puedo escuchar.',          question: '¿Dónde están las orejas?',    answer: '¡Muy bien! Estas son las orejas.',      isMouth: false, active: true  },
+
+  // ── Partes futuras (se activarán cuando se añadan sus audios) ──
+  { id: 'cejas',    label: 'CEJAS',    phrase: 'Estas son mis cejas. Mis cejas protegen mis ojos.',             question: '¿Dónde están las cejas?',     answer: '¡Muy bien! Estas son las cejas.',       isMouth: false, active: false },
+  { id: 'mejillas', label: 'MEJILLAS', phrase: 'Estas son mis mejillas.',                                       question: '¿Dónde están las mejillas?',  answer: '¡Muy bien! Estas son las mejillas.',    isMouth: false, active: false },
+  { id: 'frente',   label: 'FRENTE',   phrase: 'Esta es mi frente.',                                            question: '¿Dónde está la frente?',      answer: '¡Muy bien! Esta es la frente.',         isMouth: false, active: false },
+  { id: 'dientes',  label: 'DIENTES',  phrase: 'Estos son mis dientes. Con mis dientes puedo masticar.',        question: '¿Dónde están los dientes?',   answer: '¡Muy bien! Estos son los dientes.',     isMouth: true,  active: false },
+  { id: 'lengua',   label: 'LENGUA',   phrase: 'Esta es mi lengua. Con mi lengua puedo saborear.',              question: '¿Dónde está la lengua?',      answer: '¡Muy bien! Esta es la lengua.',         isMouth: true,  active: false },
 ];
+
+/** Solo las partes activas participan en la lección y el juego. */
+const PARTS_DATA = ALL_PARTS_DATA.filter((p) => p.active);
 
 /**
  * Mapeo de IDs de parte → archivos de audio disponibles.
+ * Los audios de versión completa incluyen nombre + frase educativa en una sola pista.
+ * Para las partes futuras, se pueden añadir sus archivos aquí cuando estén listos.
  * @constant {Object.<string, {main: string, spelling: string|null}>}
  */
 const AUDIO_MAP = {
-  ojos:     { main: 'ojos.mp3',     spelling: null },
-  nariz:    { main: 'nariz.mp3',    spelling: 'deletreo_nariz.mp3'    },
-  boca:     { main: 'boca.mp3',     spelling: 'deletreo_boca.mp3'     },
-  orejas:   { main: 'orejas.mp3',   spelling: 'deletreo_orejas.mp3'   },
-  cejas:    { main: 'cejas.mp3',    spelling: 'deletreo_cejas.mp3'    },
-  mejillas: { main: 'mejillas.mp3', spelling: 'deletreo_mejillas.mp3' },
-  frente:   { main: 'frente.mp3',   spelling: 'deletreo_frente.mp3'   },
-  dientes:  { main: 'dientes.mp3',  spelling: 'deletreo_dientes.mp3'  },
-  lengua:   { main: 'lengua.mp3',   spelling: 'deletreo_lengua.mp3'   },
+  // ── Partes activas: audios de versión completa ──
+  ojos:     { main: 'OJOS_VERSION_COMPLETA.mp3',    spelling: null },
+  nariz:    { main: 'NARIZ_VERSION_COMPLETA.mp3',   spelling: null },
+  boca:     { main: 'BOCA_VERSION_COMPLETA.mp3',    spelling: null },
+  orejas:   { main: 'OREJAS_VERSION_COMPLETA.mp3',  spelling: null },
+
+  // ── Partes futuras: descomentar/añadir cuando se tengan los audios ──
+  // cejas:    { main: 'CEJAS_VERSION_COMPLETA.mp3',    spelling: null },
+  // mejillas: { main: 'MEJILLAS_VERSION_COMPLETA.mp3', spelling: null },
+  // frente:   { main: 'FRENTE_VERSION_COMPLETA.mp3',   spelling: null },
+  // dientes:  { main: 'DIENTES_VERSION_COMPLETA.mp3',  spelling: null },
+  // lengua:   { main: 'LENGUA_VERSION_COMPLETA.mp3',   spelling: null },
 };
 
-/** Número total de partes del rostro. */
+/** Número total de partes activas en la lección. */
 const TOTAL_PARTS = PARTS_DATA.length;
 
-/** Cantidad de preguntas en el modo juego. */
-const GAME_QUESTIONS = 5;
+/** Cantidad de preguntas en el modo juego (ajustado a las partes activas). */
+const GAME_QUESTIONS = Math.min(4, PARTS_DATA.length);
 
 /* ============================================================
    UTILIDADES
@@ -675,11 +691,21 @@ class StateManager {
     $('prev').hidden = name === 'game';
     $('next').hidden = name === 'game';
 
-    // Accesibilidad: solo las partes son interactivas en lesson/game
+    // Accesibilidad: solo las partes activas son interactivas en lesson/game
     const interactive = name === 'lesson' || name === 'game';
+    const activeIds = new Set(PARTS_DATA.map((p) => p.id));
     this._parts.forEach((p) => {
-      p.setAttribute('tabindex', interactive ? '0' : '-1');
-      p.setAttribute('aria-disabled', interactive ? 'false' : 'true');
+      const isActive = activeIds.has(p.dataset.part);
+      if (isActive) {
+        p.setAttribute('tabindex', interactive ? '0' : '-1');
+        p.setAttribute('aria-disabled', interactive ? 'false' : 'true');
+        p.style.cursor = interactive ? 'pointer' : 'default';
+      } else {
+        // Partes futuras: visibles pero no interactivas
+        p.setAttribute('tabindex', '-1');
+        p.setAttribute('aria-disabled', 'true');
+        p.style.cursor = 'default';
+      }
     });
   }
 
