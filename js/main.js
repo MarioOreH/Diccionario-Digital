@@ -11,7 +11,7 @@
  *  - App:               Orquestador y event listeners.
  *
  * @author Diccionario Digital — Tesis de Grado, Ingeniería de Sistemas
- * @version 2.0.0
+ * @version 2.1.0
  * @license MIT
  */
 
@@ -50,6 +50,7 @@ const ALL_PARTS_DATA = [
   { id: 'nariz',    label: 'NARIZ',    phrase: 'Esta es mi nariz, con mi nariz puedo oler.',                    question: '¿Dónde está la nariz?',       answer: '¡Muy bien! Esta es la nariz.',          isMouth: false, active: true  },
   { id: 'boca',     label: 'BOCA',     phrase: 'Esta es mi boca, con mi boca puedo hablar y comer.',            question: '¿Dónde está la boca?',        answer: '¡Muy bien! Esta es la boca.',           isMouth: false, active: true  },
   { id: 'orejas',   label: 'OREJAS',   phrase: 'Estas son mis orejas, con mis orejas puedo escuchar.',          question: '¿Dónde están las orejas?',    answer: '¡Muy bien! Estas son las orejas.',      isMouth: false, active: true  },
+  { id: 'cabello',  label: 'CABELLO',  phrase: 'Este es mi cabello, mi cabello está sobre mi cabeza.',          question: '¿Dónde está el cabello?',     answer: '¡Muy bien! Este es el cabello.',        isMouth: false, active: true  },
 
   // ── Partes futuras (se activarán cuando se añadan sus audios) ──
   { id: 'cejas',    label: 'CEJAS',    phrase: 'Estas son mis cejas. Mis cejas protegen mis ojos.',             question: '¿Dónde están las cejas?',     answer: '¡Muy bien! Estas son las cejas.',       isMouth: false, active: false },
@@ -63,25 +64,45 @@ const ALL_PARTS_DATA = [
 const PARTS_DATA = ALL_PARTS_DATA.filter((p) => p.active);
 
 /**
- * Mapeo de IDs de parte → archivos de audio disponibles.
- * Los audios de versión completa incluyen nombre + frase educativa en una sola pista.
- * Para las partes futuras, se pueden añadir sus archivos aquí cuando estén listos.
- * @constant {Object.<string, {main: string, spelling: string|null}>}
+ * Mapeo de IDs de parte → archivos de audio (todos dentro de AUDIO_BASE).
+ * Cada parte activa tiene tres grabaciones:
+ *   - lesson:   nombre + frase educativa (modo lección).
+ *   - question: "¿Dónde está…?" (modo juego).
+ *   - correct:  "¡Muy bien! Este es…" (acierto en el juego).
+ * `spelling` es opcional (null = deletrear con voz del navegador).
+ * Para activar una parte nueva: añade aquí sus 3 archivos y pon
+ * `active: true` en ALL_PARTS_DATA (y su zona táctil en el SVG).
+ * @constant {Object.<string, {lesson: string, question: string, correct: string, spelling: string|null}>}
  */
 const AUDIO_MAP = {
-  // ── Partes activas: audios de versión completa ──
-  ojos:     { main: 'OJOS_VERSION_COMPLETA.mp3',    spelling: null },
-  nariz:    { main: 'NARIZ_VERSION_COMPLETA.mp3',   spelling: null },
-  boca:     { main: 'BOCA_VERSION_COMPLETA.mp3',    spelling: null },
-  orejas:   { main: 'OREJAS_VERSION_COMPLETA.mp3',  spelling: null },
-
-  // ── Partes futuras: descomentar/añadir cuando se tengan los audios ──
-  // cejas:    { main: 'CEJAS_VERSION_COMPLETA.mp3',    spelling: null },
-  // mejillas: { main: 'MEJILLAS_VERSION_COMPLETA.mp3', spelling: null },
-  // frente:   { main: 'FRENTE_VERSION_COMPLETA.mp3',   spelling: null },
-  // dientes:  { main: 'DIENTES_VERSION_COMPLETA.mp3',  spelling: null },
-  // lengua:   { main: 'LENGUA_VERSION_COMPLETA.mp3',   spelling: null },
+  ojos:    { lesson: 'OJOS_VERSION_COMPLETA.mp3',   question: 'DONDE_ESTAN_LOS_OJOS.mp3',    correct: 'MUY_BIEN_ESTOS_SON_LOS_OJOS.mp3',    spelling: null },
+  nariz:   { lesson: 'NARIZ_VERSION_COMPLETA.mp3',  question: 'DONDE_ESTA_LA_NARIZ.mp3',     correct: 'MUY_BIEN_ESTA_ES_LA_NARIZ.mp3',      spelling: null },
+  boca:    { lesson: 'BOCA_VERSION_COMPLETA.mp3',   question: 'DONDE_ESTA_LA_BOCA.mp3',      correct: 'MUY_BIEN_ESTA_ES_LA_BOCA.mp3',       spelling: null },
+  orejas:  { lesson: 'OREJAS_VERSION_COMPLETA.mp3', question: 'DONDE_ESTAN_LAS_OREJAS.mp3',  correct: 'MUY_BIEN_ESTAS_SON_LAS_OREJAS.mp3',  spelling: null },
+  cabello: { lesson: 'CABELLO_ESTE_ES_MI_CABELLO_MI_CABELLO_ESTA_SOBRE_MI_CABEZA.mp3',
+             question: 'DONDE_ESTA_EL_CABELLO.mp3', correct: 'MUY_BIEN_ESTE_ES_EL_CABELLO.mp3', spelling: null },
 };
+
+/**
+ * Audios generales (no pertenecen a una parte) y su texto de respaldo,
+ * que se dice con la voz del navegador solo si el MP3 falla.
+ * (El nombre "EXELENTE" es el del archivo real; no cambiarlo sin renombrarlo.)
+ */
+const AUDIO_GLOBAL = {
+  intro: { file: 'ESTE_ES_MI_ROSTRO_VAMOS_A_CONOCER_SUS_PARTES.mp3',
+           text: 'Este es mi rostro. Vamos a conocer sus partes' },
+  outro: { file: 'EXELENTE_TRABAJO_CONOCES_LAS_PARTES_DE_TU_ROSTRO.mp3',
+           text: '¡Excelente trabajo! ¡Conoces las partes del rostro!' },
+};
+
+/** Segundos máximos que se espera a que un MP3 empiece a sonar antes de darlo por fallido. */
+const AUDIO_START_TIMEOUT_MS = 8000;
+
+/**
+ * Límites de la imagen del rostro dentro del viewBox (500 x 480), tal como
+ * están en el <image> del SVG. La cámara los usa para no mostrar bordes vacíos.
+ */
+const IMAGE_BOUNDS = { left: -153.333, right: 700, top: 0, bottom: 480 };
 
 /** Número total de partes activas en la lección. */
 const TOTAL_PARTS = PARTS_DATA.length;
@@ -139,8 +160,20 @@ class AudioManager {
     /** @type {AudioContext|null} Contexto de Web Audio API. */
     this._audioCtx = null;
 
-    /** @type {HTMLAudioElement|null} Elemento de audio activo. */
-    this._currentAudio = null;
+    /**
+     * Único elemento <audio> de toda la app. Se reutiliza cambiando `src`:
+     * en móviles, una vez desbloqueado por un toque, puede seguir sonando
+     * encadenado sin que el navegador lo bloquee.
+     * @type {HTMLAudioElement}
+     */
+    this._el = new Audio();
+    this._el.preload = 'auto';
+
+    /** @type {{resolve: Function, timer: number}|null} Reproducción de MP3 en curso. */
+    this._job = null;
+
+    /** @type {HTMLAudioElement[]} Audios precargados (solo para calentar la caché). */
+    this._preloaded = [];
 
     /** @type {SpeechSynthesisUtterance|null} Utterance activo. */
     this._utterance = null;
@@ -215,23 +248,71 @@ class AudioManager {
   }
 
   /**
-   * Reproduce el audio principal de una parte del rostro.
-   * Si el MP3 falla, usa SpeechSynthesis como fallback.
-   * @param {string} partId - ID de la parte (ej. 'nariz').
-   * @returns {Promise<void>} Se resuelve al terminar la reproducción.
+   * Pide al navegador que descargue todos los MP3 por adelantado para
+   * que no haya esperas al tocar. No reproduce nada.
    */
-  async playPart(partId) {
+  preloadAll() {
+    const files = [AUDIO_GLOBAL.intro.file, AUDIO_GLOBAL.outro.file];
+    Object.values(AUDIO_MAP).forEach((e) => files.push(e.lesson, e.question, e.correct));
+    files.forEach((f) => {
+      if (!f) return;
+      const a = new Audio();
+      a.preload = 'auto';
+      a.src = AUDIO_BASE + f;
+      this._preloaded.push(a);
+    });
+  }
+
+  /**
+   * Reproduce el audio de lección de una parte (nombre + frase).
+   * @param {string} partId - ID de la parte (ej. 'nariz').
+   * @returns {Promise<void>} Se resuelve al terminar (o al ser interrumpido).
+   */
+  playPart(partId) {
     const entry = AUDIO_MAP[partId];
-    if (!entry) return;
-    try {
-      await this._playFile(AUDIO_BASE + entry.main);
-    } catch (e) {
-      // Fallback: hablar el nombre y la frase con SpeechSynthesis
-      const part = PARTS_DATA.find((p) => p.id === partId);
-      if (part) {
-        await this.speak(part.label + '. ' + part.phrase);
-      }
-    }
+    const part = PARTS_DATA.find((p) => p.id === partId);
+    if (!entry || !part) return Promise.resolve();
+    return this._playAsset(entry.lesson, part.label + '. ' + part.phrase);
+  }
+
+  /**
+   * Reproduce la pregunta del juego ("¿Dónde está…?") de una parte.
+   * @param {string} partId
+   * @returns {Promise<void>}
+   */
+  playQuestion(partId) {
+    const entry = AUDIO_MAP[partId];
+    const part = PARTS_DATA.find((p) => p.id === partId);
+    if (!entry || !part) return Promise.resolve();
+    return this._playAsset(entry.question, part.question);
+  }
+
+  /**
+   * Reproduce el mensaje de acierto ("¡Muy bien!…") de una parte.
+   * @param {string} partId
+   * @returns {Promise<void>}
+   */
+  playCorrect(partId) {
+    const entry = AUDIO_MAP[partId];
+    const part = PARTS_DATA.find((p) => p.id === partId);
+    if (!entry || !part) return Promise.resolve();
+    return this._playAsset(entry.correct, part.answer);
+  }
+
+  /**
+   * Reproduce la introducción de la lección.
+   * @returns {Promise<void>}
+   */
+  playIntro() {
+    return this._playAsset(AUDIO_GLOBAL.intro.file, AUDIO_GLOBAL.intro.text);
+  }
+
+  /**
+   * Reproduce el mensaje final del juego.
+   * @returns {Promise<void>}
+   */
+  playOutro() {
+    return this._playAsset(AUDIO_GLOBAL.outro.file, AUDIO_GLOBAL.outro.text);
   }
 
   /**
@@ -279,6 +360,7 @@ class AudioManager {
    * @returns {Promise<void>}
    */
   speak(text) {
+    this._stopAudioElement();
     this._stopSpeech();
     if (this._muted || !this._synth) return sleep(450);
 
@@ -411,7 +493,32 @@ class AudioManager {
   }
 
   /**
-   * Reproduce un archivo MP3.
+   * Reproduce un MP3 y, si falla, dice el texto de respaldo con la voz del navegador.
+   * @private
+   * @param {string|null} file - Nombre del archivo dentro de AUDIO_BASE.
+   * @param {string} fallbackText - Texto de respaldo.
+   * @returns {Promise<void>}
+   */
+  async _playAsset(file, fallbackText) {
+    if (!file) {
+      await this.speak(fallbackText);
+      return;
+    }
+    const src = AUDIO_BASE + file;
+    try {
+      await this._playFile(src);
+    } catch (e) {
+      this._reportFailure(src, e && typeof e.code === 'number' ? e.code : null);
+      await this.speak(fallbackText);
+    }
+  }
+
+  /**
+   * Reproduce un archivo MP3 con el elemento <audio> compartido.
+   * - Resuelve al terminar, y TAMBIÉN si otro audio o `stopAll()` lo interrumpe
+   *   (así nada queda esperando para siempre; quien llama comprueba su epoch).
+   * - Rechaza (con `error.code`) si el archivo falla, si el navegador bloquea
+   *   la reproducción o si no empieza a sonar a tiempo.
    * @private
    * @param {string} src - Ruta relativa al archivo.
    * @returns {Promise<void>}
@@ -422,21 +529,38 @@ class AudioManager {
     if (this._muted) return sleep(450);
 
     return new Promise((resolve, reject) => {
-      const audio = new Audio(src);
-      this._currentAudio = audio;
-      audio.volume = 1;
-      audio.onended = () => {
-        if (this._currentAudio === audio) this._currentAudio = null;
+      const el = this._el;
+      const job = { resolve, timer: 0 };
+      this._job = job;
+
+      const finish = () => {
+        clearTimeout(job.timer);
+        el.onended = el.onerror = el.onplaying = null;
+        if (this._job === job) this._job = null;
+      };
+      const fail = (code, message) => {
+        if (this._job !== job) return; // ya fue reemplazado o detenido
+        finish();
+        try { el.pause(); } catch (e) { /* nada que pausar */ }
+        const err = new Error(message);
+        err.code = code;
+        reject(err);
+      };
+
+      el.onended = () => {
+        if (this._job !== job) return;
+        finish();
         resolve();
       };
-      audio.onerror = () => {
-        if (this._currentAudio === audio) this._currentAudio = null;
-        reject(new Error('Audio failed: ' + src));
-      };
-      audio.play().catch((e) => {
-        if (this._currentAudio === audio) this._currentAudio = null;
-        reject(e);
-      });
+      el.onerror = () => fail(el.error ? el.error.code : null, 'Audio failed: ' + src);
+      el.onplaying = () => clearTimeout(job.timer);
+      job.timer = setTimeout(() => fail(2, 'Audio timeout: ' + src), AUDIO_START_TIMEOUT_MS);
+
+      el.src = src;
+      const p = el.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch((e) => fail(e && e.name === 'NotAllowedError' ? -1 : null, 'Audio blocked: ' + src));
+      }
     });
   }
 
@@ -497,17 +621,17 @@ class AudioManager {
   }
 
   /**
-   * Detiene el elemento de audio activo.
+   * Detiene el MP3 en curso y libera (resuelve) a quien lo estaba esperando.
    * @private
    */
   _stopAudioElement() {
-    if (this._currentAudio) {
-      this._currentAudio.pause();
-      this._currentAudio.currentTime = 0;
-      this._currentAudio.onended = null;
-      this._currentAudio.onerror = null;
-      this._currentAudio = null;
-    }
+    const job = this._job;
+    this._job = null;
+    const el = this._el;
+    if (job) clearTimeout(job.timer);
+    el.onended = el.onerror = el.onplaying = null;
+    try { el.pause(); } catch (e) { /* nada que pausar */ }
+    if (job) job.resolve();
   }
 
   /**
@@ -598,11 +722,24 @@ class CameraController {
       let scale = Math.min(viewBoxW, viewBoxH) / (partSize * 2.5);
       scale = Math.max(1.4, Math.min(scale, 3.0)); // Clamp entre 1.4x y 3.0x
 
+      // Partes anchas (cabello, orejas): no acercar tanto que se salgan por los lados.
+      const fitScale = Math.max(1.1, (viewBoxW * 0.92) / bbox.width);
+      scale = Math.min(scale, fitScale);
+
       // Traslación: compensar para que la parte quede centrada.
       // Con transform-origin en (250, 240), la fórmula es:
       //   translate( (origin.x - cx) * scale, (origin.y - cy) * scale )
-      const tx = (this._origin.x - cx) * scale;
-      const ty = (this._origin.y - cy) * scale;
+      let tx = (this._origin.x - cx) * scale;
+      let ty = (this._origin.y - cy) * scale;
+
+      // Límites: la imagen debe seguir cubriendo todo el viewBox (500 x 480).
+      // Sin esto, al acercar partes cerca de un borde (cabello, boca) aparece
+      // una franja vacía. Con origen O, un punto p acaba en O + T + scale·(p − O).
+      const O = this._origin;
+      const B = IMAGE_BOUNDS;
+      const clamp = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)));
+      tx = clamp(tx, viewBoxW - O.x - scale * (B.right - O.x), scale * (O.x - B.left) - O.x);
+      ty = clamp(ty, viewBoxH - O.y - scale * (B.bottom - O.y), scale * (O.y - B.top) - O.y);
 
       this._camera.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
       this._zoomed = true;
@@ -794,7 +931,7 @@ class LessonMode {
 
     // Intro hablada
     if (intro) {
-      await this._audio.speak('Este es mi rostro. Vamos a conocer sus partes');
+      await this._audio.playIntro();
     } else {
       await sleep(750);
     }
@@ -995,7 +1132,7 @@ class GameMode {
   repeatQuestion() {
     if (!this._locked) {
       const current = this._queue[this._turn];
-      this._audio.speak(current.question);
+      this._audio.playQuestion(current.id);
     }
   }
 
@@ -1019,7 +1156,7 @@ class GameMode {
 
     this._ready = true;
     this._locked = false;
-    this._audio.speak(current.question);
+    this._audio.playQuestion(current.id);
   }
 
   /**
@@ -1039,7 +1176,7 @@ class GameMode {
     await sleep(500);
     if (token !== this._state.epoch) return;
 
-    await this._audio.speak(current.answer);
+    await this._audio.playCorrect(current.id);
     await sleep(800);
     if (token !== this._state.epoch) return;
 
@@ -1079,7 +1216,7 @@ class GameMode {
   _finish() {
     this._resetVisuals();
     this._state.show('finish');
-    this._audio.speak('¡Excelente trabajo! ¡Conoces las partes del rostro!');
+    this._audio.playOutro();
   }
 
   /**
@@ -1127,8 +1264,10 @@ class App {
     this._initVideo();
     this.state.show('welcome');
 
-    // Mostrar estado de la voz
-    $('status').textContent = this.audio.getVoiceStatus();
+    // Descargar los MP3 por adelantado. El área de estado queda vacía y solo
+    // muestra un mensaje si algún audio falla (ver AudioManager._reportFailure).
+    this.audio.preloadAll();
+    $('status').textContent = '';
   }
 
   /**
